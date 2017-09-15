@@ -1,0 +1,27 @@
+language: go
+
+go:
+  - 1.8
+
+sudo: required
+dist: trusty
+
+install:
+  - sudo apt-get install sshpass
+  - go get gopkg.in/go-playground/assert.v1 
+  - go get -v ./...
+    
+script:
+  - go get gopkg.in/go-playground/assert.v1 
+  - go test -v ./...
+  - go build -v 
+  - export DEPLOY_SSH_PASS=$DAOCLOUD_SSH_PASS
+  - export DEPLOY_SSH_URL=$DAOCLOUD_SSH_URL
+  - chmod a+x ./deploy.sh
+  #- ./deploy.sh
+
+  #- sshpass -p $DAOCLOUD_SSH_PASS ssh -o StrictHostKeyChecking=no $DAOCLOUD_SSH_URL "[ -f nanoweb ] && rm nanoweb "
+  #- sshpass -p $DAOCLOUD_SSH_PASS scp -o stricthostkeychecking=no nanoweb ${DAOCLOUD_SSH_URL}:/home/ubuntu
+  #- sshpass -p $DAOCLOUD_SSH_PASS ssh -o StrictHostKeyChecking=no $DAOCLOUD_SSH_URL "NANOWEB_STATUS=`ps -A | grep nanoweb | wc -l` && [ $NANOWEB_STATUS -eq 1 ] && killall nanoweb && nohup ./nanoweb&"
+
+
