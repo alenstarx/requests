@@ -7,6 +7,7 @@ all: test
 	go build -v 
 
 deps:
+	go get github.com/gin-gonic/gin
 	go get -v ./...
 
 test: deps
