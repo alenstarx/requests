@@ -1,4 +1,8 @@
 .PHONY: all deps test clean
+
+# uncomment under line to custom your GOPATH
+# GOPATH=$(CURDIR)/.gopath
+
 all: test
 	go build -v 
 
