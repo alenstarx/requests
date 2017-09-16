@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 	"log"
-	"io"
 	"encoding/json"
 )
 
@@ -100,14 +99,14 @@ func (r *Request) SetProxy(proxy string) *Request {
 }
 
 func (r *Request) PostJson(obj interface{}) *Response {
-	r.Method = "POST"
 	r.Header.Set("Content-Type", "application/json")
-	return r.do()
+	r.SetPayload(obj)
+	return r.Post()
 }
 func (r *Request) PostForm(form map[string]string) *Response {
-	r.Method = "POST"
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	return r.do()
+	r.SetPayload(form)
+	return r.Post()
 }
 func (r *Request) Get() *Response {
 	r.Method = "GET"
@@ -115,6 +114,7 @@ func (r *Request) Get() *Response {
 }
 func (r *Request) Post() *Response {
 	r.Method = "POST"
+	r.URL.RawQuery = ""
 	return r.do()
 }
 func (r *Request) Put() *Response {
@@ -145,13 +145,12 @@ func (r *Request) SetUrl(rawurl string) *Request {
 	}
 	return r
 }
-func (r *Request) SetParams(params map[string]string) *Request {
+func (r *Request) SetParam(param map[string]string) *Request {
 	q := r.URL.Query()
-	for k, v := range params {
+	for k, v := range param {
 		q.Add(k, v)
 	}
 	r.URL.RawQuery = q.Encode()
-	r.err = nil
 	return r
 }
 
@@ -159,20 +158,12 @@ func (r *Request) SetPayload(payload interface{}) *Request {
 	switch payload.(type) {
 	case string:
 		reader := strings.NewReader(payload.(string))
-		r.ContentLength = int64(reader.Len())
-		snapshot := *reader
-		r.GetBody = func() (io.ReadCloser, error) {
-			rd := snapshot
-			return ioutil.NopCloser(&rd), nil
-		}
+		r.Body = ioutil.NopCloser(reader)
+		r.err = nil
 	case []byte:
 		reader := bytes.NewReader(payload.([]byte))
-		r.ContentLength = int64(reader.Len())
-		snapshot := *reader
-		r.GetBody = func() (io.ReadCloser, error) {
-			rd := snapshot
-			return ioutil.NopCloser(&rd), nil
-		}
+		r.Body = ioutil.NopCloser(reader)
+		r.err = nil
 	case map[string]string:
 		m := payload.(map[string]string)
 		values := url.Values{}
@@ -181,32 +172,26 @@ func (r *Request) SetPayload(payload interface{}) *Request {
 		}
 		form := values.Encode()
 		reader := strings.NewReader(form)
-		r.ContentLength = int64(reader.Len())
-		snapshot := *reader
-		r.GetBody = func() (io.ReadCloser, error) {
-			rd := snapshot
-			return ioutil.NopCloser(&rd), nil
-		}
+		r.Body = ioutil.NopCloser(reader)
+		r.err = nil
 	default:
 		body, err := json.Marshal(payload)
 		if err != nil {
-			panic("not support parameter type")
+			r.err = err
+			break
 		}
 		reader := bytes.NewReader(body)
-		r.ContentLength = int64(reader.Len())
-		snapshot := *reader
-		r.GetBody = func() (io.ReadCloser, error) {
-			rd := snapshot
-			return ioutil.NopCloser(&rd), nil
-		}
+		r.Body = ioutil.NopCloser(reader)
+		r.err = nil
 	}
-	r.err = nil
 	return r
 }
 
 func (r *Request) do() *Response {
+	if r.err != nil {
+		return &Response{nil, r.err}
+	}
 	var resp *http.Response
 	resp, r.err = r.client.Do(r.Request)
-	//defer resp.Body.Close()
 	return &Response{resp, r.err}
 }
