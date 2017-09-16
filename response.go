@@ -17,7 +17,7 @@ func (r *Response) Err() error {
 	return r.err
 }
 
-func (r *Response) GetCookies() map[string]string {
+func (r *Response) GetCookie() map[string]string {
 	cs := r.Cookies()
 	if len(cs) == 0 {
 		return nil
@@ -28,7 +28,7 @@ func (r *Response) GetCookies() map[string]string {
 	}
 	return cookie
 }
-func (r *Response) GetHeaders() map[string]string {
+func (r *Response) GetHeader() map[string]string {
 	var header map[string]string
 	for k, values := range r.Header {
 		value := ""
@@ -48,7 +48,7 @@ func (r *Response) GetHeaders() map[string]string {
 }
 
 func (r *Response) Bytes() []byte {
-	if r.Body == nil {
+	if r.err != nil || r.Body == nil {
 		return nil
 	}
 
@@ -73,6 +73,14 @@ func (r *Response) BindJson(obj interface{}) error {
 		return r.err
 	}
 	return json.Unmarshal(body, obj)
+}
+
+func (r *Response) StoreCookie(req *Request) *Response{
+	c := r.GetCookie()
+	if c != nil {
+		req.SetCookie(c)
+	}
+	return nil
 }
 
 func (r *Response) DumpToFile(filename string) error {
