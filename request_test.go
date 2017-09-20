@@ -23,9 +23,13 @@ func testRequestBase(t *testing.T) {
 }
 
 func testRequestGet(t *testing.T, r *Request) {
+	resp := r.SetUrl("http://127.0.0.1:8080/").Get()
+	assert.Equal(t, resp.Err(), nil)
+	assert.Equal(t, "requests", resp.GetCookie()["SessionId"])
+	resp.StoreCookie(r)
 	r.SetUrl("http://127.0.0.1:8080/user")
 	assert.Equal(t, r.Err(), nil)
-	resp := r.Get()
+	resp = r.Get()
 	assert.Equal(t, resp.Err(), nil)
 	body := resp.Bytes()
 	assert.Equal(t, resp.Err(), nil)
@@ -49,14 +53,18 @@ func testRequestPost(t *testing.T, r *Request) {
 
 }
 
-func initGin() *gin.Engine {
+func initGin(t *testing.T) *gin.Engine {
 	router := gin.Default()
 	router.GET("/", func(c *gin.Context) {
+		c.SetCookie("SessionId", "requests", 1000, "/", "", true, true)
 		c.String(http.StatusOK, "Welcome Gin Server")
 	})
 	router.GET("/user", func(c *gin.Context) {
 		name := c.Query("name")
 		age := c.Query("age")
+		cookie, err := c.Cookie("SessionId")
+		assert.Equal(t, nil, err)
+		assert.Equal(t, "requests", cookie)
 		c.String(http.StatusOK, "name="+name+";age="+age)
 	})
 	router.POST("/user", func(c *gin.Context) {
@@ -70,7 +78,7 @@ func TestNewRequest(t *testing.T) {
 
 	srv := &http.Server{
 		Addr:    ":8080",
-		Handler: initGin(),
+		Handler: initGin(t),
 	}
 
 	go func() {

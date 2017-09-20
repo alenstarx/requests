@@ -4,41 +4,49 @@ import (
 	"bytes"
 	"crypto/tls"
 	"golang.org/x/net/http2"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
-	"log"
 	"encoding/json"
+	"io"
+	"errors"
 )
 
 type Request struct {
-	*http.Request
-	client *http.Client
+	// *http.Request
+	*http.Client
+	URL    *url.URL
+	Body   io.Reader
+	Method string
+	Header map[string]string
 	err    error
 }
 
 func initialization(r *Request) {
-	r.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	r.Header.Set("Accept-Lanaguage", "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3")
-	r.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:55.0) Gecko/20100101 Firefox/55.0")
-	r.Header.Set("Accept-Encoding", "gzip")
-	r.Header.Set("DNT", "1")
+	r.Header["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+	r.Header["Accept-Lanaguage"] = "zh-CN,zh;q=0.8,en-US;q=0.5,en;q=0.3"
+	r.Header["User-Agent"] = "Mozilla/5.0 (X11; Linux x86_64; rv:55.0) Gecko/20100101 Firefox/55.0"
+	r.Header["Accept-Encoding"] = "gzip"
+	r.Header["DNT"] = "1"
 }
 
 func reset(r *Request) {
-	r.Header.Del("Cookie")
-}
-func NewRequest() *Request {
-	req, err := http.NewRequest("GET", "", nil)
-	if err != nil {
-		log.Fatalln("http.NewRequest:", err.Error())
+	if _, ok := r.Header["Cookie"]; ok {
+		delete(r.Header, "Cookie")
 	}
+}
+
+func NewRequest() *Request {
 	r := &Request{
-		req,
+		//req,
 		&http.Client{},
 		nil,
+		nil,
+		"GET",
+		make(map[string]string),
+		nil,
 	}
+	initialization(r)
 	return r
 }
 
@@ -47,38 +55,60 @@ func (r *Request) Err() error {
 }
 
 func (r *Request) DelCookie() *Request {
-	r.Header.Del("Cookie")
+	if _, ok := r.Header["Cookie"]; ok {
+		delete(r.Header, "Cookie")
+	}
 	return r
 }
 
 func (r *Request) SetCookie(cookie map[string]string) *Request {
 	for k, v := range cookie {
-		r.AddCookie(&http.Cookie{
-			Name:  k,
-			Value: v,
-		})
+		if c, ok := r.Header["Cookie"]; ok {
+			if len(c) > 0 {
+				r.Header["Cookie"] = c + "; " + k + "=" + v
+			} else {
+				r.Header["Cookie"] = k + "=" + v
+			}
+		} else {
+			r.Header["Cookie"] = k + "=" + v
+		}
 	}
 	return r
 }
+
+func (r *Request) AddCookie(name, value string) *Request {
+	if c, ok := r.Header["Cookie"]; ok {
+		if len(c) > 0 {
+			r.Header["Cookie"] = c + "; " + name + "=" + value
+		} else {
+			r.Header["Cookie"] = name + "=" + value
+		}
+	} else {
+		r.Header["Cookie"] = name + "=" + value
+	}
+
+	return r
+}
+
 func (r *Request) SetUserAgent(userAgent string) *Request {
-	r.Header.Set("User-Agent", userAgent)
+	r.Header["User-Agent"] = userAgent
 	return r
 }
 
 func (r *Request) SetHeader(header map[string]string) *Request {
 	for k, v := range header {
-		r.Header.Set(k, v)
+		r.Header[k] = v
 	}
 	return r
 }
 func (r *Request) EnableSPDY() *Request {
 	var tr *http.Transport
-	if r.client.Transport == nil {
+	if r.Transport == nil {
 		tr = &http.Transport{}
 	}
 	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	http2.ConfigureTransport(tr)
-	r.client.Transport = tr
+	r.Transport = tr
 	return r
 }
 
@@ -89,22 +119,22 @@ func (r *Request) SetProxy(proxy string) *Request {
 		return r
 	}
 	var tr *http.Transport
-	if r.client.Transport == nil {
+	if r.Transport == nil {
 		tr = &http.Transport{}
 	}
 	tr.Proxy = http.ProxyURL(proxyUrl)
 	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	r.client.Transport = tr
+	r.Transport = tr
 	return r
 }
 
 func (r *Request) PostJson(obj interface{}) *Response {
-	r.Header.Set("Content-Type", "application/json")
+	r.Header["Content-Type"] = "application/json"
 	r.SetPayload(obj)
 	return r.Post()
 }
 func (r *Request) PostForm(form map[string]string) *Response {
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header["Content-Type"] = "application/x-www-form-urlencoded"
 	r.SetPayload(form)
 	return r.Post()
 }
@@ -146,6 +176,10 @@ func (r *Request) SetUrl(rawurl string) *Request {
 	return r
 }
 func (r *Request) SetParam(param map[string]string) *Request {
+	if r.URL == nil {
+		r.err = errors.New("invalid URL")
+		return r
+	}
 	q := r.URL.Query()
 	for k, v := range param {
 		q.Add(k, v)
@@ -157,12 +191,10 @@ func (r *Request) SetParam(param map[string]string) *Request {
 func (r *Request) SetPayload(payload interface{}) *Request {
 	switch payload.(type) {
 	case string:
-		reader := strings.NewReader(payload.(string))
-		r.Body = ioutil.NopCloser(reader)
+		r.Body = strings.NewReader(payload.(string))
 		r.err = nil
 	case []byte:
-		reader := bytes.NewReader(payload.([]byte))
-		r.Body = ioutil.NopCloser(reader)
+		r.Body = bytes.NewReader(payload.([]byte))
 		r.err = nil
 	case map[string]string:
 		m := payload.(map[string]string)
@@ -171,8 +203,7 @@ func (r *Request) SetPayload(payload interface{}) *Request {
 			values.Add(k, v)
 		}
 		form := values.Encode()
-		reader := strings.NewReader(form)
-		r.Body = ioutil.NopCloser(reader)
+		r.Body = strings.NewReader(form)
 		r.err = nil
 	default:
 		body, err := json.Marshal(payload)
@@ -180,8 +211,7 @@ func (r *Request) SetPayload(payload interface{}) *Request {
 			r.err = err
 			break
 		}
-		reader := bytes.NewReader(body)
-		r.Body = ioutil.NopCloser(reader)
+		r.Body = bytes.NewReader(body)
 		r.err = nil
 	}
 	return r
@@ -192,6 +222,15 @@ func (r *Request) do() *Response {
 		return &Response{nil, r.err}
 	}
 	var resp *http.Response
-	resp, r.err = r.client.Do(r.Request)
+	req, err := http.NewRequest(r.Method, r.URL.String(), r.Body)
+	if err != nil {
+		r.err = err
+		return &Response{nil, r.err}
+	}
+	for k, v := range r.Header {
+		req.Header.Set(k, v)
+	}
+
+	resp, r.err = r.Do(req)
 	return &Response{resp, r.err}
 }
