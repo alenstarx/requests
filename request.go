@@ -126,42 +126,42 @@ func (r *Request) SetProxy(proxy string) *Request {
 	return r
 }
 
-func (r *Request) PostJson(obj interface{}) *Response {
+func (r *Request) JSON(obj interface{}) *Response {
 	r.Header["Content-Type"] = "application/json"
 	r.SetPayload(obj)
-	return r.Post()
+	return r.POST()
 }
-func (r *Request) PostForm(form map[string]string) *Response {
+func (r *Request) FORM(form map[string]string) *Response {
 	r.Header["Content-Type"] = "application/x-www-form-urlencoded"
 	r.SetPayload(form)
-	return r.Post()
+	return r.POST()
 }
-func (r *Request) Get() *Response {
+func (r *Request) GET() *Response {
 	r.Method = "GET"
 	return r.do()
 }
-func (r *Request) Post() *Response {
+func (r *Request) POST() *Response {
 	r.Method = "POST"
 	r.URL.RawQuery = ""
 	return r.do()
 }
-func (r *Request) Put() *Response {
+func (r *Request) PUT() *Response {
 	r.Method = "PUT"
 	return r.do()
 }
-func (r *Request) Patch() *Response {
+func (r *Request) PATCH() *Response {
 	r.Method = "PATCH"
 	return r.do()
 }
-func (r *Request) Delete() *Response {
+func (r *Request) DELETE() *Response {
 	r.Method = "DELETE"
 	return r.do()
 }
-func (r *Request) Head() *Response {
+func (r *Request) HEAD() *Response {
 	r.Method = "HEAD"
 	return r.do()
 }
-func (r *Request) Options() *Response {
+func (r *Request) OPTIONS() *Response {
 	r.Method = "OPTIONS"
 	return r.do()
 }

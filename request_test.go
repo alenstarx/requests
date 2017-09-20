@@ -15,7 +15,7 @@ func testRequestBase(t *testing.T) {
 	assert.Equal(t, req.Err(), nil)
 	req.SetUrl("https://baidu.com")
 	assert.Equal(t, req.Err(), nil)
-	resp := req.Get()
+	resp := req.GET()
 	assert.Equal(t, resp.Err(), nil)
 	body := resp.Bytes()
 	assert.Equal(t, resp.Err(), nil)
@@ -23,13 +23,13 @@ func testRequestBase(t *testing.T) {
 }
 
 func testRequestGet(t *testing.T, r *Request) {
-	resp := r.SetUrl("http://127.0.0.1:8080/").Get()
+	resp := r.SetUrl("http://127.0.0.1:8080/").GET()
 	assert.Equal(t, resp.Err(), nil)
 	assert.Equal(t, "requests", resp.GetCookie()["SessionId"])
 	resp.StoreCookie(r)
 	r.SetUrl("http://127.0.0.1:8080/user")
 	assert.Equal(t, r.Err(), nil)
-	resp = r.Get()
+	resp = r.GET()
 	assert.Equal(t, resp.Err(), nil)
 	body := resp.Bytes()
 	assert.Equal(t, resp.Err(), nil)
@@ -38,7 +38,7 @@ func testRequestGet(t *testing.T, r *Request) {
 	param := make(map[string]string)
 	param["name"] = "Tom"
 	param["age"] = "99"
-	body = r.SetParam(param).Get().Bytes()
+	body = r.SetParam(param).GET().Bytes()
 	assert.Equal(t, string(body), "name=Tom;age=99")
 }
 
@@ -46,7 +46,7 @@ func testRequestPost(t *testing.T, r *Request) {
 	form := make(map[string]string)
 	form["name"] = "Tom"
 	form["age"] = "99"
-	resp := r.PostForm(form)
+	resp := r.FORM(form)
 	assert.Equal(t, nil, resp.err)
 	body := resp.Bytes()
 	assert.Equal(t, string(body), "name=Tom;age=99")
