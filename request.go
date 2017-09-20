@@ -13,7 +13,6 @@ import (
 )
 
 type Request struct {
-	// *http.Request
 	*http.Client
 	URL    *url.URL
 	Body   io.Reader
@@ -38,7 +37,6 @@ func reset(r *Request) {
 
 func NewRequest() *Request {
 	r := &Request{
-		//req,
 		&http.Client{},
 		nil,
 		nil,
