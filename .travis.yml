@@ -8,11 +8,13 @@ dist: trusty
 
 install:
   - sudo apt-get install sshpass
-  - go get gopkg.in/go-playground/assert.v1 
+  #- go get gopkg.in/go-playground/assert.v1 
+  - go get github.com/stretchr/testify/assert
   - go get -v ./...
     
 script:
-  - go get gopkg.in/go-playground/assert.v1 
+  #- go get gopkg.in/go-playground/assert.v1 
+  - go get github.com/stretchr/testify/assert
   - go test -v ./...
   - go build -v 
   - export DEPLOY_SSH_PASS=$DAOCLOUD_SSH_PASS
