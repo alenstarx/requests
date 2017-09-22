@@ -19,7 +19,7 @@ script:
   - go build -v 
   - export DEPLOY_SSH_PASS=$DAOCLOUD_SSH_PASS
   - export DEPLOY_SSH_URL=$DAOCLOUD_SSH_URL
-  - chmod a+x ./deploy.sh
+  #- chmod a+x ./deploy.sh
   #- ./deploy.sh
 
   #- sshpass -p $DAOCLOUD_SSH_PASS ssh -o StrictHostKeyChecking=no $DAOCLOUD_SSH_URL "[ -f nanoweb ] && rm nanoweb "
