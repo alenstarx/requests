@@ -10,14 +10,44 @@ import (
 	"encoding/json"
 	"io"
 	"errors"
+	"regexp"
+	"fmt"
 )
+
+type HttpCookie map[string]string
+
+func (h HttpCookie) Add(name, value string) {
+	h[name] = value
+}
+func (h HttpCookie) Del(name string) {
+	delete(h, name)
+}
+func (h HttpCookie) Clear() {
+	for k, _ := range h {
+		delete(h, k)
+	}
+}
+
+type HttpHeader map[string]string
+
+func (h HttpHeader) Add(name, value string) {
+	h[name] = value
+}
+func (h HttpHeader) Del(name string) {
+	delete(h, name)
+}
+func (h HttpHeader) Clear() {
+	for k, _ := range h {
+		delete(h, k)
+	}
+}
 
 type Request struct {
 	*http.Client
 	URL    *url.URL
 	Body   io.Reader
 	Method string
-	Header map[string]string
+	Header HttpHeader // map[string]string
 	err    error
 }
 
@@ -52,9 +82,25 @@ func (r *Request) Err() error {
 	return r.err
 }
 
-func (r *Request) DelCookie() *Request {
+func (r *Request) ClearCookie() *Request {
 	if _, ok := r.Header["Cookie"]; ok {
 		delete(r.Header, "Cookie")
+	}
+	return r
+}
+
+func (r *Request) DelCookie(name string) *Request {
+	if cs, ok := r.Header["Cookie"]; ok {
+		delete(r.Header, "Cookie")
+		re := regexp.MustCompile(`([^=; ].*?)=([^=;].*?)`)
+		cookie := re.FindAllStringSubmatch(cs, -1)
+		for _, v := range cookie {
+			if len(v) == 3 {
+				if v[1] != name {
+					r.AddCookie(v[1], v[2])
+				}
+			}
+		}
 	}
 	return r
 }
@@ -93,6 +139,20 @@ func (r *Request) SetUserAgent(userAgent string) *Request {
 	return r
 }
 
+func (r *Request) ClearHeader() *Request {
+	for k, _ := range r.Header {
+		delete(r.Header, k)
+	}
+	return r
+}
+func (r *Request) DelHeader(k string) *Request {
+	delete(r.Header, k)
+	return r
+}
+func (r *Request) AddHeader(k, v string) *Request {
+	r.Header[k] = v
+	return r
+}
 func (r *Request) SetHeader(header map[string]string) *Request {
 	for k, v := range header {
 		r.Header[k] = v
@@ -128,32 +188,34 @@ func (r *Request) SetProxy(proxy string) *Request {
 
 func (r *Request) JSON(obj interface{}) *Response {
 	r.Header["Content-Type"] = "application/json"
-	r.SetPayload(obj)
-	return r.POST()
+	return r.POST(obj)
 }
 func (r *Request) FORM(form map[string]string) *Response {
 	r.Header["Content-Type"] = "application/x-www-form-urlencoded"
-	r.SetPayload(form)
-	return r.POST()
+	return r.POST(form)
 }
-func (r *Request) GET() *Response {
+func (r *Request) GET(query interface{}) *Response {
 	r.Method = "GET"
+	r.setParam(query)
 	return r.do()
 }
-func (r *Request) POST() *Response {
+func (r *Request) POST(obj interface{}) *Response {
 	r.Method = "POST"
 	r.URL.RawQuery = ""
+	r.setPayload(obj)
 	return r.do()
 }
-func (r *Request) PUT() *Response {
+func (r *Request) PUT(obj interface{}) *Response {
 	r.Method = "PUT"
+	r.URL.RawQuery = ""
+	r.setPayload(obj)
 	return r.do()
 }
-func (r *Request) PATCH() *Response {
+func (r *Request) PATCH(obj interface{}) *Response {
 	r.Method = "PATCH"
 	return r.do()
 }
-func (r *Request) DELETE() *Response {
+func (r *Request) DELETE(obj interface{}) *Response {
 	r.Method = "DELETE"
 	return r.do()
 }
@@ -161,7 +223,7 @@ func (r *Request) HEAD() *Response {
 	r.Method = "HEAD"
 	return r.do()
 }
-func (r *Request) OPTIONS() *Response {
+func (r *Request) OPTIONS(obj interface{}) *Response {
 	r.Method = "OPTIONS"
 	return r.do()
 }
@@ -173,20 +235,38 @@ func (r *Request) SetUrl(rawurl string) *Request {
 	}
 	return r
 }
-func (r *Request) SetParam(param map[string]string) *Request {
+func (r *Request) setParam(param interface{}) *Request {
 	if r.URL == nil {
 		r.err = errors.New("invalid URL")
 		return r
 	}
-	q := r.URL.Query()
-	for k, v := range param {
-		q.Add(k, v)
+	if param == nil {
+		return r
 	}
-	r.URL.RawQuery = q.Encode()
+	switch param.(type) {
+	case string:
+		query := param.(string)
+		r.URL.RawQuery = query
+	case []byte:
+		query := string(param.([]byte))
+		r.URL.RawQuery = query
+	case map[string]string:
+		q := r.URL.Query()
+		query := param.(map[string]string)
+		for k, v := range query {
+			q.Add(k, v)
+		}
+		r.URL.RawQuery = q.Encode()
+	default:
+		r.err = fmt.Errorf("not support type")
+		return r
+
+	}
+
 	return r
 }
 
-func (r *Request) SetPayload(payload interface{}) *Request {
+func (r *Request) setPayload(payload interface{}) *Request {
 	switch payload.(type) {
 	case string:
 		r.Body = strings.NewReader(payload.(string))

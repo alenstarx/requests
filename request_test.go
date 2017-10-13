@@ -15,7 +15,7 @@ func testRequestBase(t *testing.T) {
 	assert.Equal(t, req.Err(), nil)
 	req.SetUrl("https://baidu.com")
 	assert.Equal(t, req.Err(), nil)
-	resp := req.GET()
+	resp := req.GET(nil)
 	assert.Equal(t, resp.Err(), nil)
 	body := resp.Bytes()
 	assert.Equal(t, resp.Err(), nil)
@@ -23,13 +23,13 @@ func testRequestBase(t *testing.T) {
 }
 
 func testRequestGet(t *testing.T, r *Request) {
-	resp := r.SetUrl("http://127.0.0.1:8080/").GET()
+	resp := r.SetUrl("http://127.0.0.1:8080/").GET(nil)
 	assert.Equal(t, resp.Err(), nil)
 	assert.Equal(t, "requests", resp.GetCookie()["SessionId"])
 	resp.StoreCookie(r)
 	r.SetUrl("http://127.0.0.1:8080/user")
 	assert.Equal(t, r.Err(), nil)
-	resp = r.GET()
+	resp = r.GET(nil)
 	assert.Equal(t, resp.Err(), nil)
 	body := resp.Bytes()
 	assert.Equal(t, resp.Err(), nil)
@@ -38,7 +38,7 @@ func testRequestGet(t *testing.T, r *Request) {
 	param := make(map[string]string)
 	param["name"] = "Tom"
 	param["age"] = "99"
-	body = r.SetParam(param).GET().Bytes()
+	body = r.GET(param).Bytes()
 	assert.Equal(t, string(body), "name=Tom;age=99")
 }
 
